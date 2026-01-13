@@ -21,7 +21,7 @@ Exploratory data analysis and visualizations are used to compare economic impact
 - Longer-lasting disasters consistently lead to higher economic impact across all categories. 
 
 ## Conclusion
-The results suggest that the persistence of a disaster plays a more critical role in determining economic damage than its classification or severity. These findings highlight the importance of focusing on disaster duration when assessing economic risk and planning mitigation strategies.
+The results suggest that the persistence of a disaster plays a more critical role in determining economic damage than its classification or severity. These findings highlight the importance of focusing on disaster duration when assessing economic risk and planning mitigation strategies. 
 
 
 
