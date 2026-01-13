@@ -1,0 +1,28 @@
+---
+title: "DATA101_FinalProjectPaper_Template"
+author: "Fill in your names"
+output: pdf_document
+date: "2025-11-12"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(tidymodels)
+```
+
+## Section 1 - Introduction
+
+## Section 2 - Data
+
+## Section 3 - Analytic Framework
+
+## Section 4 - Results
+
+## Section 5 - Implications
+
+## Citations
+

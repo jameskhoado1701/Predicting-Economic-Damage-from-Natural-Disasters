@@ -1,0 +1,152 @@
+---
+title: "DATA101_FinalProjectPaper"
+author: "Khoa Do"
+output: pdf_document
+date: "2025-11-12"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(tidymodels)
+```
+```{r}
+library(tidyverse)
+df <- read_csv("FinalProject.csv")
+
+```
+
+## Section 1 - Introduction
+  Having lived in disaster prone countries, we’ve had first hand experience of the economic damage natural disasters bring along when occurring. To resolve our curiosity of the scale of damage different disasters cause, our research paper investigates the question: Which groups of natural disasters cause the greatest economic damage? To address this question, we used a public dataset from Kaggle that compiled worldwide records of natural disasters along with country-level economic damage estimates. The dataset includes information on disaster type and severity, duration, number of people affected, fatalities, and economic impact, allowing us to compare the economic consequences of different categories of natural disasters.
+
+## Section 2 - Data
+  The dataset used in this project contains information on natural disasters and their economic impacts across multiple countries and years, and it was likely compiled from sources such as the EM-DAT, World Bank economic reports, and national disaster response agencies. In total, the dataset consists of approximately 3,000 observations and 22 variables that capture the characteristics, impacts, and responses associated with these disasters. Each row in the dataset represents a recorded natural disaster event along with its corresponding economic impact, while each variable describes a specific characteristic of that event. Key variables used in this analysis include the disaster type (group), duration, severity level, and estimated economic damage. There are several potential limitations to the data: Economic impact figures may not be adjusted for inflation, exchange rates, or differences in population size, GDP, etc. across countries and years. Additionally, underreporting may occur, particularly in developing countries, which could lead to underestimated damage values. Finally, some disaster types, such as floods or earthquakes, are more frequently recorded than others, creating an uneven representation that could bias results and make certain disaster categories appear more or less economically damaging simply due to their higher number of recorded events.
+
+## Section 3 - Analytic Framework
+  The key variables used in this analysis are:
+  
+-  economic_impact_million_usd (the estimated total economic loss): the response variable which is a numerical / continuous variables.
+-  event_group (the categorized version of disasters types): the primary explanatory variable which is a categorical variable.
+-  duration_days (how long the event lasted): the secondary explanatory variable, which is a continuous variable (acts like a major confounding variable).
+-  severity_level (how severe the disaster was): the last explanatory variable, which is a categorical variable as well (sort of acts like a confounding variable).
+
+
+```{r}
+df <- df %>%
+  mutate(
+    event_group = case_when(
+      event_type %in% c("Drought", "Wildfire", "Volcanic Eruption", "Heatwave") ~ "Heat Events",
+      event_type %in% c("Tsunami", "Flood") ~ "Water Events",
+      event_type %in% c("Earthquake", "Landslide") ~ "Earth Movement Events",
+      event_type %in% "Cold Wave" ~ "Cold Events",
+      event_type %in% c("Hurricane", "Tornado", "Hailstorm") ~ "Storm Events"
+    ))
+```
+
+  Because there are many different types of disasters, the visualizations become hard to interpret, so we group them into five main categories: Heat Events, Water Events, Earth Movement Events, Cold Events, and Storm Events.
+
+```{r}
+df <- df %>%
+  mutate(
+    severity_level = case_when(
+      severity %in% 1:2 ~ "Minor",
+      severity %in% 3:4 ~ "Moderate",
+      severity %in% 5:6 ~ "Severe",
+      severity %in% 7:8 ~ "Very Severe",
+      severity %in% 9:10 ~ "Catastrophic"
+    ))
+```
+
+  The ‘severity’ variable only takes interger values from 1 to 10 to represent the ordered levels of disaster intensity. This confirms that the variable is discrete and ordinal rather than continuous. In other words, each number represents a distinct category of intensity, not a numeric scale with equal intervals. Therefore, we grouped them into five ordered categories: Minor, Moderate, Severe, Very Severe, and Catastrophic. 
+
+  In most of the plots we’ve used a log10 transformation for economic impact because the raw values are extremely right-skewed, with many small events and a few disasters that cause hundreds of millions in losses. The log10 scale reduces the influence of these extreme outliers and spreads out the smaller values, allowing the distributions, and trends to become visually interpretable. Importantly, the transformation does not change the ordering of events or the underlying relationships because it simply rescales the data so that meaningful patterns can emerge.
+
+## Section 4 - Results
+```{r}
+cat_summary <- df %>%
+  count(event_group, severity_level) %>%
+  pivot_wider(
+    names_from = severity_level,
+    values_from = n,
+    values_fill = 0
+  )
+
+cat_summary
+```
+  The table shows general distribution of the 5 event group categories across the severity levels. Across all groups, Minor and Moderate events make up the majority of disasters, while Catastrophic events are extremely rare in every category. Heat Events and Storm Events are the most common overall, while Cold Events and Water Events appear less frequently. Unlike our expectation of disasters like water events or storm events being the most severe type, we noticed heat events had the greatest occurrence of being the most severe/ catastrophic. 
+
+```{r}
+ggplot(df, aes(x = event_group, y = economic_impact_million_usd)) +
+  geom_boxplot(fill = "yellow") +
+  scale_y_log10(labels = scales::comma) +
+  coord_flip()+
+  theme_minimal() +
+  labs(title = "Economic Impact across Disaster Types",
+       x = "Disaster Type",
+       y = "log10(Economic Impact)") 
+```
+
+  The boxplot shows the distribution of log-transformed economic losses across disaster groups. Cold events have the highest median log-impact values, indicating they may cause the greatest financial damage. Heat Events might be the most serious disaster because they also contain some really high outliers. Earth Movement Events have relatively lower impacts. 
+
+```{r}
+df_lm <- lm(economic_impact_million_usd ~ event_group + duration_days + severity_level, data = df)
+summary(df_lm)
+```
+  The results show that duration is the only strong and statistically significant predictor, with each additional day increasing expected economic losses by about 0.17 million USD (p < 0.001). 
+  
+  Heat Events have the largest positive coefficient, suggesting they tend to cause higher losses than Cold Events, but the estimate is not statistically significant, and the same is true for Earth Movement, Storm, and Water Events(p > 0.05). 
+  
+  The Severity level coefficients are also not important because they all have large standard errors and p>0.05. This indicates that severity differences do not translate into reliably different economic impacts when duration is also accounted for. 
+  
+  The model explains only about 4% of the variation in economic impact, which is expected given how unpredictable and heterogeneous real disasters are.
+  
+  We can conclude that the duration of a disaster is far more important than its severity or event type in predicting economic damage.
+
+```{r}
+ggplot(df, aes(x = duration_days, y = economic_impact_million_usd, color = event_group)) +
+  geom_point(alpha = 0.3) +
+  geom_smooth(method = "lm", se = FALSE) +
+  scale_y_log10(labels = scales::comma) +
+  theme_minimal() +
+  labs(
+    title = "Relationship Between Duration and Economic Impact across Disaster Types",
+    x = "Duration (Days)",
+    y = "log10(Economic Impact)"
+  )
+```
+  This scatterplot shows the relationship between disaster duration and the log-transformed economic impact for each event group. Across all groups, the fitted lines slope upward, indicating a clear positive relationship: as duration increases, economic losses increase, regardless of the type of disaster. 
+  Heat Events and Cold Events show the steepest slopes, which means that these categories experience the fastest growth in economic damage as they last longer. Storm Events and Water Events have flatter slopes. Earth Movement Events tend to last in short days.
+
+```{r}
+ggplot(df, aes(x = severity_level, y = economic_impact_million_usd)) +
+  geom_boxplot(alpha = 0.3, width = 0.6) +
+  facet_wrap(~ event_group) +
+  coord_flip()+
+  scale_y_log10(labels = scales::comma)+
+  theme_minimal(base_size = 12) +
+  labs(
+    title = "Relationship Between Severity Level and Economic Impact across Disaster Types",
+    x = "Severity Level", 
+    y = "Log10(Economic Impact)" 
+  )
+  
+```
+  This faceted plot shows how economic impact varies across severity levels within each of the five disaster groups. Across all groups, the pattern is consistent: higher severity levels tend to be associated with higher economic losses. 
+  Heat Events and Water Events show the strongest upward trend, with Severe and Very Severe events producing much larger impacts than Minor ones. Catastrophic events appear very rarely in the dataset, so their boxplots are based on only a few observations and should not be interpreted too heavily.
+
+
+## Section 5 - Implications
+  The findings suggest that how long a disaster lasts matters more than its type or severity level when predicting economic damage. While severity and event type show descriptive patterns, they do not provide reliable predictive power once duration is accounted for. These results highlight the importance of focusing on disaster persistence when assessing economic risk.
+  
+  The findings of this study have broader implications for both policymakers and the general public. By identifying which types of natural disasters cause the greatest economic damage, the results can help governments make more informed decisions about how disaster prevention, preparedness, and recovery resources should be allocated, particularly for long-term planning. A clearer understanding of the true economic scale of different disasters also allows policymakers to prioritize investments in infrastructure, early warning systems, and resilience strategies. In addition, this research helps the general public develop a better understanding of which natural disasters pose the greatest threat to economic stability.
+  
+  However, some issues remain unresolved. Although we can estimate it, duration days is still hard to accurately guess in order to make a strong prediction about the economic impact. The only way to improve this is to record more and more data regarding duration of each disaster, increasing sample size which increases confidence. There could be possible bias from grouping the disasters into broader categories, which may hide important differences within each type. We can simply solve this by including more granular disaster categories.
+
+
+## Citations
+https://www.mdpi.com/2073-4433/12/11/1448
+
+https://www.kaggle.com/datasets/uom190346a/global-climate-events-and-economic-impact-dataset
